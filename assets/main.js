@@ -127,7 +127,9 @@
     object.type = 'image/svg+xml'
     object.data = 'assets/exercise.svg'
     object.className = 'exercise'
-    exercisesRoot.appendChild(object)
+    const div = document.createElement('div')
+    div.appendChild(object)
+    exercisesRoot.appendChild(div)
   }
 
   window.onpopstate = (event) => {
