@@ -54,41 +54,45 @@
     array.push.apply(array, array.splice(0, rotation));
   }
 
-  function renderSeed (randomSeed, maxStrokes) {
+  function renderExercies (randomSeed, maxStrokes) {
     const permutations = PERMUTATIONS.slice(0, PERMUTATIONS_OFFSETS[maxStrokes])
 
+    return deriveKey(randomSeed).then(key => {
+      const exercies = document.querySelectorAll('#exercises .exercise')
+
+      Promise.all([...exercies].map((svg, index) => {
+        const counter = new Uint32Array(1)
+        counter[0] = index
+
+        return crypto.subtle.sign({name: 'HMAC'}, key, counter)
+          .then(randomBlock => {
+            const array = new Uint32Array(randomBlock)
+
+            const permutationIndex =
+              Math.floor(mapRange(array[0], 0, UINT32_MAX, 0, permutations.length))
+            const rotation = Math.floor(mapRange(array[1], 0, UINT32_MAX, 0, 8))
+
+            const strokes = permutations[permutationIndex].split('')
+            rotateArrayInPlace(strokes, rotation)
+
+            const textLayer = svg.contentDocument.getElementById('svgStrokeText')
+            for (i in strokes) {
+              textLayer.children[i].innerHTML = strokes[i]
+            }
+          })
+        })
+      )
+    })
+  }
+
+  function deriveKey (randomSeed) {
     const encoder = new TextEncoder()
     const buffer = encoder.encode(randomSeed).buffer
-
-    return crypto.subtle.digest('SHA-256', buffer)
+    return crypto.subtle
+      .digest('SHA-256', buffer)
       .then(key => {
         const algo = {name: 'HMAC', hash: 'SHA-256'}
         return crypto.subtle.importKey('raw', key, algo, false, ['sign'])
-      }).then(key => {
-        Promise.all([...document.querySelectorAll('#exercises .exercise')]
-          .map((svg, index) => {
-
-            const counter = new Uint32Array(1)
-            counter[0] = index
-
-            return crypto.subtle.sign({name: 'HMAC'}, key, counter)
-              .then(randomBlock => {
-                const array = new Uint32Array(randomBlock)
-
-                const permutationIndex =
-                  Math.floor(mapRange(array[0], 0, UINT32_MAX, 0, permutations.length))
-                const rotation = Math.floor(mapRange(array[1], 0, UINT32_MAX, 0, 8))
-
-                const strokes = permutations[permutationIndex].split('')
-                rotateArrayInPlace(strokes, rotation)
-
-                const textLayer = svg.contentDocument.getElementById('svgStrokeText')
-                for (i in strokes) {
-                  textLayer.children[i].innerHTML = strokes[i]
-                }
-              })
-          })
-        )
       })
   }
 
@@ -118,7 +122,7 @@
       s: randomSeed,
       m: maxStrokes
     }))
-    renderSeed(randomSeed, maxStrokes)
+    renderExercies(randomSeed, maxStrokes)
   }
 
   const exercisesRoot = document.getElementById('exercises')
@@ -134,7 +138,7 @@
 
   window.onpopstate = (event) => {
     const {randomSeed, maxStrokes} = event.state
-    renderSeed(randomSeed, maxStrokes)
+    renderExercies(randomSeed, maxStrokes)
   }
 
   window.onload = () => {
@@ -143,7 +147,7 @@
     const maxStrokes = params.get('m')
 
     if (randomSeed && maxStrokes) {
-      renderSeed(randomSeed, maxStrokes)
+      renderExercies(randomSeed, maxStrokes)
     } else {
       const randomSeed = newRandomSeed()
       const maxStrokes = 3
@@ -151,7 +155,7 @@
         s: randomSeed,
         m: maxStrokes
       }))
-      renderSeed(randomSeed, maxStrokes)
+      renderExercies(randomSeed, maxStrokes)
     }
   }
 })()
